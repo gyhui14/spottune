@@ -25,7 +25,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def adjust_learning_rate_and_learning_taks(optimizer, epoch, args):
+def adjust_learning_rate_net(optimizer, epoch, args):
     """Sets the learning rate to the initial LR decayed by 10 every X epochs"""
     if epoch >= args.step3:
         lr = args.lr * 0.001
@@ -35,6 +35,21 @@ def adjust_learning_rate_and_learning_taks(optimizer, epoch, args):
         lr = args.lr * 0.1
     else:
         lr = args.lr
+
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
+def adjust_learning_rate_agent(optimizer, epoch, args):
+    """Sets the learning rate to the initial LR decayed by 10 every X epochs"""
+    if epoch >= args.step3:
+        lr = args.lr_agent * 0.001
+    if epoch >= args.step2:
+        lr = args.lr_agent * 0.01        
+    if epoch >= args.step1:
+        lr = args.lr_agent * 0.1
+    else:
+        lr = args.lr_agent
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -51,7 +66,7 @@ def load_weights_to_flatresnet(source, net, agent,  dataset):
     element = 0
     for name, m in net.named_modules():
         if isinstance(m, nn.Conv2d):
-            m.weight.data = torch.nn.Parameter(store_data[element])
+            m.weight.data = torch.nn.Parameter(store_data[element].clone())
             element += 1
 
     store_data = []
@@ -83,7 +98,7 @@ def load_weights_to_flatresnet(source, net, agent,  dataset):
     element = 0
     for name, m in agent.named_modules():
         if isinstance(m, nn.Conv2d):
-            m.weight.data = torch.nn.Parameter(store_data[element])
+            m.weight.data = torch.nn.Parameter(store_data[element].clone())
             element += 1
 
     store_data = []
@@ -106,11 +121,11 @@ def load_weights_to_flatresnet(source, net, agent,  dataset):
                 m.running_mean = store_data_rm[element].clone()
                 element += 1
 
-    agent.linear.weight.data = torch.nn.Parameter(agent_old.module.linear.weight.data)
-    agent.linear.bias.data = torch.nn.Parameter(agent_old.module.linear.bias.data)
+    agent.linear.weight.data = torch.nn.Parameter(agent_old.module.linear.weight.data.clone())
+    agent.linear.bias.data = torch.nn.Parameter(agent_old.module.linear.bias.data.clone())
 
-    net.linear.weight.data = torch.nn.Parameter(net_old.module.linear.weight.data)
-    net.linear.bias.data = torch.nn.Parameter(net_old.module.linear.bias.data)
+    net.linear.weight.data = torch.nn.Parameter(net_old.module.linear.weight.data.clone())
+    net.linear.bias.data = torch.nn.Parameter(net_old.module.linear.bias.data.clone())
 
     del net_old
     del agent_old
@@ -126,4 +141,3 @@ def get_net_and_agent(model, num_class, dataset = None):
             rnet, agent = load_weights_to_flatresnet(source, rnet, agent, dataset)
 
             return rnet, agent
-

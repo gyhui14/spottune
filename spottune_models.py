@@ -63,6 +63,7 @@ class ResNet(nn.Module):
         self.blocks = nn.ModuleList(self.blocks)
         self.ds = nn.ModuleList(self.ds)
     
+        self.in_planes = int(32*factor)
         for idx, (filt_size, num_blocks, stride) in enumerate(zip(filt_sizes, layers, strides)):
             blocks, ds = self._make_layer(block, filt_size, num_blocks, stride=stride)
             self.parallel_blocks.append(nn.ModuleList(blocks))
@@ -112,7 +113,7 @@ class ResNet(nn.Module):
 
                         residual = self.ds[segment](x) if b==0 else x
                         output = self.blocks[segment][b](x)
-
+			
                         residual_ = self.parallel_ds[segment](x) if b==0 else x
                         output_ = self.parallel_blocks[segment][b](x)
                         f1 = F.relu(residual + output)
@@ -126,8 +127,7 @@ class ResNet(nn.Module):
                     output = self.blocks[segment][b](x)
                     x = F.relu(residual + output)
                     t += 1
-
-        x = self.bn2(x)
+	x = self.bn2(x)
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.linear(x)
@@ -135,5 +135,3 @@ class ResNet(nn.Module):
 
 def resnet26(num_class=10, blocks=BasicBlock):
     return  ResNet(blocks, [4,4,4], num_class)
-
-

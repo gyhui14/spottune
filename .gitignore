@@ -1,4 +1,5 @@
 .DS*
 data/*
 cv/*
-
+*.pyc
+*.json

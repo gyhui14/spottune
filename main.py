@@ -87,6 +87,7 @@ def train(dataset, poch, train_loader, net, agent, net_optimizer, agent_optimize
         images, labels = Variable(images), Variable(labels)	   
 
         probs = agent(images)
+
         action = gumbel_softmax(probs.view(probs.size(0), -1, 2))
         policy = action[:,:,1]
 
@@ -97,7 +98,7 @@ def train(dataset, poch, train_loader, net, agent, net_optimizer, agent_optimize
 
         # Loss
         loss = criterion(outputs, labels)
-        tasks_losses.update(loss.data[0], labels.size(0))
+        tasks_losses.update(loss.item(), labels.size(0))
 
         if i % 50 == 0:
             print ("Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Acc Val: {:.4f}, Acc Avg: {:.4f}"
@@ -128,7 +129,6 @@ def test(epoch, val_loader, net, agent, dataset):
             images, labels = Variable(images), Variable(labels)
 
        	    probs = agent(images)
-    	 
             action = gumbel_softmax(probs.view(probs.size(0), -1, 2))
             policy = action[:,:,1]
             outputs = net.forward(images, policy)
@@ -139,7 +139,7 @@ def test(epoch, val_loader, net, agent, dataset):
         
             # Loss
             loss = criterion(outputs, labels)
-            tasks_losses.update(loss.data[0], labels.size(0))           
+            tasks_losses.update(loss.item(), labels.size(0))           
 
     print "test accuracy"
     print ("Epoch [{}/{}], Loss: {:.4f}, Acc Val: {:.4f}, Acc Avg: {:.4f}"
@@ -161,13 +161,13 @@ def load_weights_to_flatresnet(source, net, num_class, dataset):
     element = 0
     for name, m in net.named_modules():
         if isinstance(m, nn.Conv2d) and 'parallel_blocks' not in name:
-            m.weight.data = torch.nn.Parameter(store_data[element])
+            m.weight.data = torch.nn.Parameter(store_data[element].clone())
             element += 1
 
     element = 1
     for name, m in net.named_modules():
         if isinstance(m, nn.Conv2d) and 'parallel_blocks' in name:
-            m.weight.data = torch.nn.Parameter(store_data[element])
+            m.weight.data = torch.nn.Parameter(store_data[element].clone())
             element += 1
 
     store_data = []
@@ -232,7 +232,8 @@ for i, dataset in enumerate(datasets.keys()):
 
     num_class = num_classes[datasets[dataset]]
     net = get_model("resnet26", num_class, dataset = "imagenet12")
-
+	
+	
     agent = agent_net.resnet(sum(net.layer_config) * 2)
 	
     # freeze the original blocks
@@ -251,16 +252,16 @@ for i, dataset in enumerate(datasets.keys()):
 
         cudnn.benchmark = True
         torch.cuda.manual_seed_all(args.seed)
-        net = nn.DataParallel(net)
-        agent = nn.DataParallel(agent)
+        #net = nn.DataParallel(net)
+        #agent = nn.DataParallel(agent)
 
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr= args.lr, momentum=0.9, weight_decay= weight_decays[dataset])
     agent_optimizer = optim.SGD(agent.parameters(), lr= args.lr_agent, momentum= 0.9, weight_decay= 0.001)
 
     start_epoch = 0
     for epoch in range(start_epoch, start_epoch+args.nb_epochs):
-        adjust_learning_rate_and_learning_taks(optimizer, epoch, args)
-        adjust_learning_rate_and_learning_taks(agent_optimizer, epoch, args)
+        adjust_learning_rate_net(optimizer, epoch, args)
+        adjust_learning_rate_agent(agent_optimizer, epoch, args)
 
         st_time = time.time()
         train_acc, train_loss = train(dataset, epoch, train_loaders[datasets[dataset]], net, agent, optimizer, agent_optimizer)
